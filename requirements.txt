@@ -1,0 +1,4 @@
+DrissionPage==3.2.32
+beautifulsoup4==4.12.2
+tqdm==4.65.0
+ebooklib==0.18.1
