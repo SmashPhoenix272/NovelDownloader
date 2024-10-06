@@ -4,27 +4,30 @@ NovelDownloader is a Python-based tool designed to download web novels from vari
 
 ## Recent Updates
 
-- Improved cover image downloading process to handle Cloudflare protection more effectively
-- Enhanced error handling and logging for cover image downloads
-- Optimized file handling for cover images using DrissionPage's built-in download functionality
-- Fixed issues related to cover image path handling
+- Added support for Genesistudio translation site
+- Implemented NovelUpdates login functionality for accessing restricted content
+- Enhanced error handling and logging throughout the download process
+- Improved EPUB creation with better HTML formatting for chapter content
+- Optimized cover image downloading process with retry mechanism
 
 ## Features
 
 - Retrieves novel information from NovelUpdates.com
 - Downloads chapters from supported translation sites
-- Bypasses Cloudflare protection on supported websites, including for cover image downloads
-- Efficiently downloads and processes cover images using DrissionPage
+- Bypasses Cloudflare protection on supported websites
+- Efficiently downloads and processes cover images
 - Caches novel information and chapters for faster subsequent downloads
 - Exports novels as EPUB files with cover images and table of contents
 - Detects paywalls on supported sites
 - Improved error handling and logging
 - Uses DrissionPage for efficient web scraping and Cloudflare bypassing
+- Supports login to NovelUpdates for accessing restricted content
 
 ## Supported Sites
 
 Currently, NovelDownloader supports:
 - Penguin Squad
+- Genesistudio
 
 More sites will be added in future updates.
 
@@ -61,13 +64,11 @@ You can run the script in two ways:
    ```
 
 The script will then:
+- Prompt you to select the translation site (PenguinSquad or Genesistudio)
 - Download the novel information from NovelUpdates
-- Download all available chapters from the translation site
+- Download all available chapters from the selected translation site
 - Cache the content for faster subsequent downloads
 - Download the cover image (with Cloudflare bypassing if necessary)
-  - The cover image is downloaded directly to the script's directory
-  - The image is then embedded into the EPUB file
-  - The downloaded image file is automatically deleted after processing
 - Save the novel as an EPUB file with all the collected information and content
 
 For more detailed instructions, please refer to the [Usage Guide](claudeDev_docs/usage_guide.md).
@@ -78,6 +79,7 @@ For more detailed instructions, please refer to the [Usage Guide](claudeDev_docs
 - `source/`: Contains modules for different translation sites
 - `cache/`: Contains caching module
 - `CloudflareBypasser.py`: Module for bypassing Cloudflare protection
+- `tests/`: Contains test files for various modules
 
 ## Contributing
 

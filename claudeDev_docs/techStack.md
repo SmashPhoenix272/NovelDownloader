@@ -57,6 +57,15 @@ This document outlines the key technologies and libraries used in the NovelDownl
   - Customizable appearance and information display.
 - **Considerations**: Enhances user experience by providing visual feedback during downloads.
 
+## Logging and Error Handling
+
+### logging (Python built-in module)
+- **Purpose**: Provides a flexible framework for generating log messages.
+- **Key Features**:
+  - Hierarchical logging system with different log levels.
+  - Can be configured to output logs to various destinations (console, file, etc.).
+- **Considerations**: Improves debugging and user feedback by providing detailed information about the application's operation and any errors encountered.
+
 ## Version Control
 
 ### Git
@@ -74,7 +83,6 @@ This document outlines the key technologies and libraries used in the NovelDownl
 1. **Asynchronous Programming**: Consider incorporating `asyncio` or similar libraries for parallel downloads in future versions.
 2. **GUI Frameworks**: Evaluate options like PyQt, Tkinter, or web-based frameworks for future GUI development.
 3. **Testing Frameworks**: Plan to incorporate pytest or unittest for developing a comprehensive test suite.
-4. **Logging**: Implement the `logging` module for better debug information and user feedback.
-5. **Configuration Management**: Consider using `configparser` or similar for managing user preferences and application settings.
+4. **Configuration Management**: Consider using `configparser` or similar for managing user preferences and application settings.
 
 This tech stack is subject to evolution as the project grows and new requirements emerge. Regular reviews and updates to this document will be conducted to reflect any changes in the project's technological foundation.

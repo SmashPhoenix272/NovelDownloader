@@ -6,8 +6,8 @@ It supports multiple translation sites through a modular structure and can bypas
 It also implements caching and EPUB export functionality.
 
 Usage:
-1. Run the script: python NovelDownloader.py [NovelUpdates URL] [Translation Site URL]
-2. If URLs are not provided as arguments, you will be prompted to enter them.
+1. Run the script: python NovelDownloader.py
+2. Follow the prompts to select the translation site and provide necessary URLs.
 3. The script will download the novel, cache the content, and save it as an EPUB file.
 """
 
@@ -22,6 +22,8 @@ from urllib.parse import urlparse, unquote
 from CloudflareBypasser import CloudflareBypasser
 from source.translation_site import PenguinSquadSite
 from source.penguin_squad_site import PaywallException
+from source.genesistudio_site import GenesistudioSite
+from source.NU_getchapterlink import NovelUpdatesChapterRetriever
 from cache.novel_cache import NovelCache
 from ebooklib import epub
 import io
@@ -38,6 +40,16 @@ class NovelDownloader:
         self.novel_content = []
         self.total_chapters = 0
         self.cache = None
+        self.nu_retriever = NovelUpdatesChapterRetriever(self.page, self.cf_bypasser)
+
+    def login_to_novelupdates(self):
+        logger.info("Attempting to log in to NovelUpdates")
+        if self.nu_retriever.login():
+            logger.info("Successfully logged in to NovelUpdates")
+            return True
+        else:
+            logger.error("Failed to log in to NovelUpdates")
+            return False
 
     def get_novel_info(self, novelupdates_url):
         logger.info(f"Retrieving novel information from {novelupdates_url}")
@@ -72,8 +84,9 @@ class NovelDownloader:
         self.cache = NovelCache(self.novel_info['title'])
         self.cache.cache_novel_info(self.novel_info)
 
-    def download_novel(self, translation_site, translation_site_url):
+    def download_novel_penguin_squad(self, translation_site_url):
         try:
+            translation_site = PenguinSquadSite(self.page, self.cf_bypasser)
             logger.info(f"Retrieving chapter links from {translation_site_url}")
             chapter_links = translation_site.get_chapter_links(translation_site_url)
             self.total_chapters = len(chapter_links)
@@ -97,6 +110,41 @@ class NovelDownloader:
             logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
         except Exception as e:
             logger.error(f"Error downloading novel: {str(e)}")
+            sys.exit(1)
+
+    def download_novel_genesistudio(self, novelupdates_url):
+        try:
+            if not self.login_to_novelupdates():
+                logger.error("Failed to log in to NovelUpdates. Cannot proceed with download.")
+                return
+
+            translation_site = GenesistudioSite(self.page, self.cf_bypasser)
+            logger.info(f"Retrieving chapter links from NovelUpdates: {novelupdates_url}")
+            chapter_links = translation_site.get_chapter_links(novelupdates_url)
+            self.total_chapters = len(chapter_links)
+            
+            logger.info(f"Found {self.total_chapters} chapters. Starting download...")
+            for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
+                cached_chapter = self.cache.get_cached_chapter(i)
+                if cached_chapter:
+                    chapter_title, chapter_content = cached_chapter
+                else:
+                    try:
+                        chapter_title, chapter_content = translation_site.get_chapter_content(link)
+                        if chapter_title and chapter_content:
+                            self.cache.cache_chapter(i, chapter_title, chapter_content)
+                        else:
+                            logger.warning(f"Failed to retrieve content for chapter {i+1}")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Error downloading chapter {i+1}: {str(e)}")
+                        continue
+                
+                self.novel_content.append((chapter_title, chapter_content))
+            
+            logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
+        except Exception as e:
+            logger.error(f"Error downloading novel from Genesistudio: {str(e)}")
             sys.exit(1)
 
     def save_novel_as_epub(self):
@@ -158,11 +206,7 @@ class NovelDownloader:
             chapters = []
             for i, (title, content) in enumerate(self.novel_content):
                 chapter = epub.EpubHtml(title=title, file_name=f'chapter_{i+1}.xhtml', lang='en')
-                
-                # Convert content to proper HTML
-                formatted_content = self.format_chapter_content(content)
-                
-                chapter.content = f"<h1>{title}</h1>{formatted_content}"
+                chapter.content = f"<h1>{title}</h1>{content}"
                 book.add_item(chapter)
                 chapters.append(chapter)
             
@@ -190,18 +234,6 @@ class NovelDownloader:
             logger.error(f"Error saving novel as EPUB: {str(e)}")
             sys.exit(1)
 
-    def format_chapter_content(self, content):
-        # Check if content is already HTML
-        if content.strip().startswith('<') and content.strip().endswith('>'):
-            # Content is already HTML, return as is
-            return content
-        
-        # Convert line breaks to paragraph tags
-        paragraphs = content.split('\n')
-        formatted_content = ''.join([f'<p>{p.strip()}</p>' for p in paragraphs if p.strip()])
-        
-        return formatted_content
-
 def validate_url(url):
     try:
         result = urlparse(url)
@@ -209,30 +241,36 @@ def validate_url(url):
     except ValueError:
         return False
 
+def get_translation_site():
+    while True:
+        choice = input("Select translation site (1 for PenguinSquad, 2 for Genesistudio): ").strip()
+        if choice in ['1', '2']:
+            return 'PenguinSquad' if choice == '1' else 'Genesistudio'
+        print("Invalid choice. Please enter 1 or 2.")
+
 def main():
     downloader = NovelDownloader()
     
-    if len(sys.argv) == 3:
-        novelupdates_url = sys.argv[1]
-        translation_site_url = sys.argv[2]
-    else:
-        while True:
-            novelupdates_url = input("Enter NovelUpdates URL: ")
-            if validate_url(novelupdates_url):
-                break
-            logger.warning("Invalid URL. Please enter a valid URL.")
+    translation_site = get_translation_site()
+    
+    while True:
+        novelupdates_url = input("Enter NovelUpdates URL: ")
+        if validate_url(novelupdates_url):
+            break
+        logger.warning("Invalid URL. Please enter a valid URL.")
 
+    downloader.get_novel_info(novelupdates_url)
+
+    if translation_site == 'PenguinSquad':
         while True:
-            translation_site_url = input("Enter translation site URL: ")
+            translation_site_url = input("Enter PenguinSquad URL: ")
             if validate_url(translation_site_url):
                 break
             logger.warning("Invalid URL. Please enter a valid URL.")
+        downloader.download_novel_penguin_squad(translation_site_url)
+    else:  # Genesistudio
+        downloader.download_novel_genesistudio(novelupdates_url)
 
-    # For now, we're using PenguinSquadSite as an example
-    translation_site = PenguinSquadSite(downloader.page, downloader.cf_bypasser)
-
-    downloader.get_novel_info(novelupdates_url)
-    downloader.download_novel(translation_site, translation_site_url)
     downloader.save_novel_as_epub()
 
 if __name__ == "__main__":

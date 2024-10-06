@@ -132,3 +132,5 @@ dmypy.json
 cache/db/*.db
 *.epub
 /*.txt  # Ignore all .txt files in the root directory
+tests/extracted_chapter_content.html
+tests/genesistudio_full_html.txt

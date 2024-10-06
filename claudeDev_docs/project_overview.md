@@ -6,15 +6,18 @@ NovelDownloader is a Python-based tool designed to simplify the process of downl
 
 ## Key Features
 
-1. **Multi-site Support**: Capable of downloading novels from multiple translation sites through a modular architecture.
+1. **Multi-site Support**: Capable of downloading novels from multiple translation sites (currently PenguinSquad and Genesistudio) through a modular architecture.
 2. **Cloudflare Bypass**: Implements techniques to bypass Cloudflare protection on supported websites.
 3. **Caching System**: Utilizes SQLite to cache novel information and chapters, improving performance for repeated downloads.
-4. **EPUB Export**: Converts downloaded novels into EPUB format, complete with cover images and table of contents.
+4. **EPUB Export**: Converts downloaded novels into EPUB format, complete with cover images and table of contents, with improved HTML formatting.
 5. **Paywall Detection**: Identifies paywalls on supported sites to prevent incomplete downloads.
+6. **NovelUpdates Integration**: Supports logging into NovelUpdates to access restricted content.
+7. **Enhanced Error Handling**: Provides detailed logging throughout the download process for easier troubleshooting.
+8. **Cover Image Retry Mechanism**: Implements a retry strategy for downloading cover images to improve success rate.
 
-## Current State (Version 1.0)
+## Current State (Version 1.1)
 
-The project is currently in its initial release stage. It provides core functionality for downloading novels, with support for one translation site (Penguin Squad). The system includes basic error handling, caching, and EPUB export features.
+The project has evolved from its initial release and now supports multiple translation sites. It provides core functionality for downloading novels, with support for PenguinSquad and Genesistudio. The system includes advanced error handling, efficient caching, and improved EPUB export features.
 
 ## Target Audience
 
@@ -38,6 +41,7 @@ The project is organized into several key components:
 - Translation site modules (`source/` directory)
 - Caching module (`cache/` directory)
 - Cloudflare bypassing utility (`CloudflareBypasser.py`)
+- Test files (`tests/` directory)
 
 This structure allows for easy expansion and maintenance of the codebase.
 
@@ -45,12 +49,12 @@ This structure allows for easy expansion and maintenance of the codebase.
 
 The project roadmap outlines several planned improvements and new features:
 
-1. Expanded site support
-2. Enhanced error handling and recovery
-3. User interface improvements (CLI and GUI)
-4. Performance optimizations (parallel downloading)
-5. Additional output formats
-6. Integration with e-reader devices and applications
+1. Further expanded site support
+2. User interface improvements (CLI and GUI)
+3. Performance optimizations (parallel downloading)
+4. Additional output formats
+5. Integration with e-reader devices and applications
+6. Implement a plugin system for easier addition of new translation sites
 
 Long-term goals include creating a comprehensive novel management system with cloud synchronization, recommendation features, and possibly mobile applications.
 
@@ -62,6 +66,7 @@ Contributions to the NovelDownloader project are welcome. Contributors are encou
 2. Write clear, documented code
 3. Test new features thoroughly
 4. Update relevant documentation
+5. Add or update test cases for new functionality
 
 ## Challenges and Considerations
 
@@ -69,7 +74,8 @@ Contributions to the NovelDownloader project are welcome. Contributors are encou
 - Ensuring the tool is used responsibly and ethically
 - Balancing feature richness with simplicity of use
 - Keeping up with evolving e-book standards and reader capabilities
+- Handling different login mechanisms and access restrictions across various sites
 
 ## Conclusion
 
-NovelDownloader aims to become a comprehensive solution for web novel enthusiasts, providing an efficient, user-friendly way to enjoy their favorite content. Through continued development and community involvement, the project seeks to adapt to the changing landscape of web novels and e-reading technologies.
+NovelDownloader continues to evolve as a comprehensive solution for web novel enthusiasts, providing an efficient, user-friendly way to enjoy their favorite content. Through continued development and community involvement, the project adapts to the changing landscape of web novels and e-reading technologies, offering enhanced features and broader site support.

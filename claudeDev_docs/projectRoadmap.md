@@ -2,7 +2,7 @@
 
 This document outlines the long-term goals and planned features for the NovelDownloader project.
 
-## Version 1.0 (Current)
+## Version 1.0 (Completed)
 
 - [x] Basic novel downloading functionality
 - [x] Support for Penguin Squad translation site
@@ -11,11 +11,15 @@ This document outlines the long-term goals and planned features for the NovelDow
 - [x] EPUB export with cover images and table of contents
 - [x] Paywall detection
 
-## Version 1.1
+## Version 1.1 (Current)
 
-- [ ] Implement error handling for network issues and unexpected website changes
-- [ ] Add support for at least one more translation site
-- [ ] Create a simple command-line interface (CLI) for easier interaction
+- [x] Implement error handling for network issues and unexpected website changes
+- [x] Add support for at least one more translation site (Genesistudio added)
+- [x] Create a simple command-line interface (CLI) for easier interaction
+- [x] Implement logging functionality for better debugging and user feedback
+- [x] Add NovelUpdates login functionality for accessing restricted content
+- [x] Improve EPUB creation with better HTML formatting
+- [x] Implement retry mechanism for cover image downloads
 - [ ] Implement feature to resume interrupted downloads
 - [ ] Add unit tests for core functions
 
@@ -24,7 +28,7 @@ This document outlines the long-term goals and planned features for the NovelDow
 - [ ] Implement parallel downloading of chapters to improve speed
 - [ ] Add support for multiple output formats (e.g., PDF, MOBI)
 - [ ] Implement a configuration file for user preferences
-- [ ] Add logging functionality for better debugging and user feedback
+- [ ] Expand test coverage for improved reliability
 
 ## Version 1.3
 

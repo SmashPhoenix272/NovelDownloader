@@ -24,7 +24,7 @@ python NovelDownloader.py [NovelUpdates URL] [Translation Site URL]
 
 Example:
 ```
-python NovelDownloader.py https://www.novelupdates.com/series/i-killed-the-player-of-the-academy/ https://penguin-squad.com/story/i-killed-the-player-of-the-academy/
+python NovelDownloader.py https://www.novelupdates.com/series/example-novel/ https://penguin-squad.com/story/example-novel/
 ```
 
 ### 2. Without Arguments (Interactive Mode)
@@ -37,21 +37,31 @@ If you run the script without arguments, you'll be prompted to enter the URLs:
    ```
    python NovelDownloader.py
    ```
-4. When prompted, enter the NovelUpdates URL for the novel you want to download.
-5. Next, enter the URL of the translation site where the novel chapters are hosted.
+4. When prompted, select the translation site (1 for PenguinSquad, 2 for Genesistudio).
+5. Enter the NovelUpdates URL for the novel you want to download.
+6. If you selected PenguinSquad, enter the URL of the translation site where the novel chapters are hosted.
 
 ## What the Script Does
 
-Once you've provided the URLs (either via command-line or interactively), the script will:
+Once you've provided the necessary information, the script will:
 
 1. Retrieve the novel information from NovelUpdates
-2. Download all available chapters from the translation site
-3. Cache the novel information and chapters for faster future downloads
-4. Create an EPUB file with the downloaded content
+2. If using Genesistudio, log in to NovelUpdates to access restricted content
+3. Download all available chapters from the selected translation site
+4. Cache the novel information and chapters for faster future downloads
+5. Create an EPUB file with the downloaded content
 
 The saved novel will be in the same directory as the script, named after the novel title and including the total number of chapters.
 
 ## New Features and Improvements
+
+### Support for Genesistudio
+
+The script now supports downloading novels from Genesistudio. When using this site, you only need to provide the NovelUpdates URL, as the script will retrieve the chapter links directly from NovelUpdates.
+
+### NovelUpdates Login Functionality
+
+For sites that require it (currently Genesistudio), the script can now log in to NovelUpdates to access restricted content. Make sure you have valid NovelUpdates credentials when using this feature.
 
 ### Improved Error Handling and Logging
 
@@ -63,22 +73,22 @@ If the cover image download fails, the script will now retry up to 3 times with 
 
 ## Supported Features
 
+- **Multi-site Support**: Currently supports PenguinSquad and Genesistudio translation sites.
 - **Caching**: Novel information and chapters are cached to improve performance for repeated downloads. The cache is stored in a SQLite database in the `cache/db/` directory.
-
 - **EPUB Output**: The downloaded novel is saved as an EPUB file, which includes:
   - Novel metadata (title, author, etc.)
   - Cover image (if available)
   - Table of contents
   - All downloaded chapters
-
 - **Cloudflare Bypass**: The tool can bypass Cloudflare protection on supported websites.
-
 - **Paywall Detection**: For supported sites, the tool can detect paywalls and stop downloading when encountered.
+- **NovelUpdates Integration**: Can log in to NovelUpdates to access restricted content for supported sites.
 
 ## Supported Sites
 
 Currently, NovelDownloader supports the following translation sites:
 - Penguin Squad
+- Genesistudio
 
 Support for additional sites will be added in future updates.
 
@@ -88,6 +98,7 @@ Support for additional sites will be added in future updates.
 - Make sure you have a stable internet connection throughout the download process.
 - If a specific translation site is not working, check if there's an implementation for that site in the `source` directory. If not, you may need to add support for that site (see `claudeDev_docs/adaptive_instructions.md` for guidance).
 - If you encounter a paywall message, the download will stop at the last freely available chapter.
+- For Genesistudio downloads, ensure you have valid NovelUpdates credentials if prompted for login.
 
 ## Error Handling
 
