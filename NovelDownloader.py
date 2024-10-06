@@ -211,8 +211,8 @@ class NovelDownloader:
                 chapters.append(chapter)
             
             # Define Table of Contents
-            book.toc = (epub.Link('info.xhtml', 'Novel Information', 'intro'),
-                        (epub.Section('Chapters'), chapters))
+            book.toc = [epub.Link('info.xhtml', 'Novel Information', 'intro')]
+            book.toc.extend(chapters)
             
             # Add default NCX and Nav file
             book.add_item(epub.EpubNcx())
