@@ -1,16 +1,3 @@
-"""
-NovelDownloader.py
-
-This script downloads novels from translation websites using information from NovelUpdates.com.
-It supports multiple translation sites through a modular structure and can bypass Cloudflare protection.
-It also implements caching and EPUB export functionality.
-
-Usage:
-1. Run the script: python NovelDownloader.py
-2. Follow the prompts to select the translation site and provide necessary URLs.
-3. The script will download the novel, cache the content, and save it as an EPUB file.
-"""
-
 import os
 import sys
 import logging
@@ -20,9 +7,8 @@ import re
 from tqdm import tqdm
 from urllib.parse import urlparse, unquote
 from CloudflareBypasser import CloudflareBypasser
-from source.translation_site import PenguinSquadSite
+from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite
 from source.penguin_squad_site import PaywallException
-from source.genesistudio_site import GenesistudioSite
 from source.NU_getchapterlink import NovelUpdatesChapterRetriever
 from cache.novel_cache import NovelCache
 from ebooklib import epub
@@ -84,7 +70,14 @@ class NovelDownloader:
         self.cache = NovelCache(self.novel_info['title'])
         self.cache.cache_novel_info(self.novel_info)
 
-    def download_novel_penguin_squad(self, translation_site_url):
+    def check_cache(self):
+        cached_chapters = self.cache.get_all_cached_chapters()
+        if cached_chapters:
+            logger.info(f"Found {len(cached_chapters)} cached chapters for '{self.novel_info['title']}'")
+            return True
+        return False
+
+    def download_novel_penguin_squad(self, translation_site_url, use_cache=False):
         try:
             translation_site = PenguinSquadSite(self.page, self.cf_bypasser)
             logger.info(f"Retrieving chapter links from {translation_site_url}")
@@ -94,7 +87,7 @@ class NovelDownloader:
             logger.info(f"Found {self.total_chapters} chapters. Starting download...")
             for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
                 cached_chapter = self.cache.get_cached_chapter(i)
-                if cached_chapter:
+                if use_cache and cached_chapter:
                     chapter_title, chapter_content = cached_chapter
                 else:
                     try:
@@ -112,7 +105,7 @@ class NovelDownloader:
             logger.error(f"Error downloading novel: {str(e)}")
             sys.exit(1)
 
-    def download_novel_genesistudio(self, novelupdates_url):
+    def download_novel_genesistudio(self, novelupdates_url, use_cache=False):
         try:
             if not self.login_to_novelupdates():
                 logger.error("Failed to log in to NovelUpdates. Cannot proceed with download.")
@@ -126,7 +119,7 @@ class NovelDownloader:
             logger.info(f"Found {self.total_chapters} chapters. Starting download...")
             for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
                 cached_chapter = self.cache.get_cached_chapter(i)
-                if cached_chapter:
+                if use_cache and cached_chapter:
                     chapter_title, chapter_content = cached_chapter
                 else:
                     try:
@@ -145,6 +138,35 @@ class NovelDownloader:
             logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
         except Exception as e:
             logger.error(f"Error downloading novel from Genesistudio: {str(e)}")
+            sys.exit(1)
+
+    def download_novel_readingpia(self, translation_site_url, use_cache=False):
+        try:
+            translation_site = ReadingPiaSite(self.page, self.cf_bypasser)
+            logger.info(f"Retrieving chapter links from {translation_site_url}")
+            chapter_links = translation_site.get_chapter_links(translation_site_url)
+            self.total_chapters = len(chapter_links)
+            
+            logger.info(f"Found {self.total_chapters} chapters. Starting download...")
+            for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
+                cached_chapter = self.cache.get_cached_chapter(i)
+                if use_cache and cached_chapter:
+                    chapter_title, chapter_content = cached_chapter
+                else:
+                    try:
+                        chapter_title, chapter_content = translation_site.get_chapter_content(link)
+                        if not chapter_title:
+                            chapter_title = f"Chapter {i+1}"
+                        self.cache.cache_chapter(i, chapter_title, chapter_content)
+                    except Exception as e:
+                        logger.warning(f"Error downloading chapter {i+1}: {str(e)}")
+                        continue
+                
+                self.novel_content.append((chapter_title, chapter_content))
+            
+            logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
+        except Exception as e:
+            logger.error(f"Error downloading novel from ReadingPia: {str(e)}")
             sys.exit(1)
 
     def save_novel_as_epub(self):
@@ -243,10 +265,10 @@ def validate_url(url):
 
 def get_translation_site():
     while True:
-        choice = input("Select translation site (1 for PenguinSquad, 2 for Genesistudio): ").strip()
-        if choice in ['1', '2']:
-            return 'PenguinSquad' if choice == '1' else 'Genesistudio'
-        print("Invalid choice. Please enter 1 or 2.")
+        choice = input("Select translation site (1 for PenguinSquad, 2 for Genesistudio, 3 for ReadingPia): ").strip()
+        if choice in ['1', '2', '3']:
+            return 'PenguinSquad' if choice == '1' else 'Genesistudio' if choice == '2' else 'ReadingPia'
+        print("Invalid choice. Please enter 1, 2, or 3.")
 
 def main():
     downloader = NovelDownloader()
@@ -261,15 +283,31 @@ def main():
 
     downloader.get_novel_info(novelupdates_url)
 
+    use_cache = False
+    if downloader.check_cache():
+        while True:
+            choice = input("Cache found. Do you want to use the existing cache? (y/n): ").strip().lower()
+            if choice in ['y', 'n']:
+                use_cache = (choice == 'y')
+                break
+            print("Invalid choice. Please enter 'y' or 'n'.")
+
     if translation_site == 'PenguinSquad':
         while True:
             translation_site_url = input("Enter PenguinSquad URL: ")
             if validate_url(translation_site_url):
                 break
             logger.warning("Invalid URL. Please enter a valid URL.")
-        downloader.download_novel_penguin_squad(translation_site_url)
-    else:  # Genesistudio
-        downloader.download_novel_genesistudio(novelupdates_url)
+        downloader.download_novel_penguin_squad(translation_site_url, use_cache)
+    elif translation_site == 'Genesistudio':
+        downloader.download_novel_genesistudio(novelupdates_url, use_cache)
+    else:  # ReadingPia
+        while True:
+            translation_site_url = input("Enter ReadingPia URL: ")
+            if validate_url(translation_site_url):
+                break
+            logger.warning("Invalid URL. Please enter a valid URL.")
+        downloader.download_novel_readingpia(translation_site_url, use_cache)
 
     downloader.save_novel_as_epub()
 

@@ -91,6 +91,6 @@ class CloudflareBypasser:
             time.sleep(2)
 
         if self.is_bypassed():
-            self.log_message("Bypass successful.")
+            self.log_message("\nBypass successful.")
         else:
-            self.log_message("Bypass failed.")
+            self.log_message("\nBypass failed.")
