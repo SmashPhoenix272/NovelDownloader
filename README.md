@@ -28,6 +28,7 @@ NovelDownloader is a Python-based tool designed to download web novels from vari
 Currently, NovelDownloader supports:
 - Penguin Squad
 - Genesistudio
+- Zetrotranslation.com
 
 More sites will be added in future updates.
 
@@ -35,6 +36,13 @@ More sites will be added in future updates.
 
 - Python 3.7 or higher
 - pip (Python package installer)
+
+## Dependencies
+
+Ensure you have the following dependencies installed:
+- DrissionPage
+- CloudflareBypasser
+- BeautifulSoup
 
 ## Installation
 
@@ -108,8 +116,6 @@ If you encounter any issues, particularly with cover image downloads or Cloudfla
 - [Technical Stack](claudeDev_docs/techStack.md)
 - [Codebase Summary](claudeDev_docs/codebaseSummary.md)
 - [Project Roadmap](claudeDev_docs/projectRoadmap.md)
-- [Adaptive Instructions](claudeDev_docs/adaptive_instructions.md)
-- [Error Handling](claudeDev_docs/errors.md)
 
 ## License
 

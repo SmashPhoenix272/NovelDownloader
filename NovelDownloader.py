@@ -7,7 +7,7 @@ import re
 from tqdm import tqdm
 from urllib.parse import urlparse, unquote
 from CloudflareBypasser import CloudflareBypasser
-from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite
+from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite, ZetroTranslationSite
 from source.penguin_squad_site import PaywallException
 from source.NU_getchapterlink import NovelUpdatesChapterRetriever
 from cache.novel_cache import NovelCache
@@ -169,6 +169,37 @@ class NovelDownloader:
             logger.error(f"Error downloading novel from ReadingPia: {str(e)}")
             sys.exit(1)
 
+    def download_novel_zetrotranslation(self, translation_site_url, use_cache=False):
+        try:
+            translation_site = ZetroTranslationSite(self.page, self.cf_bypasser)
+            logger.info(f"Retrieving chapter links from {translation_site_url}")
+            chapter_links = translation_site.get_chapter_links(translation_site_url)
+            self.total_chapters = len(chapter_links)
+            
+            logger.info(f"Found {self.total_chapters} chapters. Starting download...")
+            for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
+                cached_chapter = self.cache.get_cached_chapter(i)
+                if use_cache and cached_chapter:
+                    chapter_title, chapter_content = cached_chapter
+                else:
+                    try:
+                        chapter_title, chapter_content = translation_site.get_chapter_content(link)
+                        if chapter_title and chapter_content:
+                            self.cache.cache_chapter(i, chapter_title, chapter_content)
+                        else:
+                            logger.warning(f"Failed to retrieve content for chapter {i+1}")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Error downloading chapter {i+1}: {str(e)}")
+                        continue
+                
+                self.novel_content.append((chapter_title, chapter_content))
+            
+            logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
+        except Exception as e:
+            logger.error(f"Error downloading novel from Zetrotranslation: {str(e)}")
+            sys.exit(1)
+
     def save_novel_as_epub(self):
         try:
             logger.info(f"Creating EPUB for novel: {self.novel_info['title']}")
@@ -256,60 +287,80 @@ class NovelDownloader:
             logger.error(f"Error saving novel as EPUB: {str(e)}")
             sys.exit(1)
 
-def validate_url(url):
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except ValueError:
-        return False
+    def validate_url(self, url):
+        try:
+            result = urlparse(url)
+            return all([result.scheme, result.netloc])
+        except ValueError:
+            return False
 
-def get_translation_site():
-    while True:
-        choice = input("Select translation site (1 for PenguinSquad, 2 for Genesistudio, 3 for ReadingPia): ").strip()
-        if choice in ['1', '2', '3']:
-            return 'PenguinSquad' if choice == '1' else 'Genesistudio' if choice == '2' else 'ReadingPia'
-        print("Invalid choice. Please enter 1, 2, or 3.")
+    def get_translation_site(self):
+        while True:
+            print("\nAvailable translation sites:")
+            print("1. Penguin Squad")
+            print("2. Genesis Studio")
+            print("3. Reading Pia")
+            print("4. Zetrotranslation")
+            choice = input("\nSelect translation site (1-4): ")
+            
+            if choice == "1":
+                return "penguin_squad"
+            elif choice == "2":
+                return "genesistudio"
+            elif choice == "3":
+                return "readingpia"
+            elif choice == "4":
+                return "zetrotranslation"
+            else:
+                print("Invalid choice. Please try again.")
 
 def main():
-    downloader = NovelDownloader()
-    
-    translation_site = get_translation_site()
-    
-    while True:
+    try:
+        downloader = NovelDownloader()
+        
         novelupdates_url = input("Enter NovelUpdates URL: ")
-        if validate_url(novelupdates_url):
-            break
-        logger.warning("Invalid URL. Please enter a valid URL.")
-
-    downloader.get_novel_info(novelupdates_url)
-
-    use_cache = False
-    if downloader.check_cache():
-        while True:
-            choice = input("Cache found. Do you want to use the existing cache? (y/n): ").strip().lower()
-            if choice in ['y', 'n']:
-                use_cache = (choice == 'y')
-                break
-            print("Invalid choice. Please enter 'y' or 'n'.")
-
-    if translation_site == 'PenguinSquad':
-        while True:
-            translation_site_url = input("Enter PenguinSquad URL: ")
-            if validate_url(translation_site_url):
-                break
+        if not downloader.validate_url(novelupdates_url):
             logger.warning("Invalid URL. Please enter a valid URL.")
-        downloader.download_novel_penguin_squad(translation_site_url, use_cache)
-    elif translation_site == 'Genesistudio':
-        downloader.download_novel_genesistudio(novelupdates_url, use_cache)
-    else:  # ReadingPia
-        while True:
-            translation_site_url = input("Enter ReadingPia URL: ")
-            if validate_url(translation_site_url):
-                break
-            logger.warning("Invalid URL. Please enter a valid URL.")
-        downloader.download_novel_readingpia(translation_site_url, use_cache)
-
-    downloader.save_novel_as_epub()
+            return
+            
+        downloader.get_novel_info(novelupdates_url)
+        
+        translation_site = downloader.get_translation_site()
+        if translation_site != "zetrotranslation":
+            translation_site_url = input("Enter translation site URL: ")
+            if not downloader.validate_url(translation_site_url):
+                logger.warning("Invalid URL. Please enter a valid URL.")
+                return
+        else:
+            translation_site_url = novelupdates_url
+            
+        use_cache = False
+        if downloader.check_cache():
+            while True:
+                choice = input("Cache found. Do you want to use the existing cache? (y/n): ").strip().lower()
+                if choice in ['y', 'n']:
+                    use_cache = (choice == 'y')
+                    break
+                print("Invalid choice. Please enter 'y' or 'n'.")
+        
+        if translation_site == "penguin_squad":
+            downloader.download_novel_penguin_squad(translation_site_url, use_cache)
+        elif translation_site == "genesistudio":
+            downloader.download_novel_genesistudio(novelupdates_url, use_cache)
+        elif translation_site == "readingpia":
+            downloader.download_novel_readingpia(translation_site_url, use_cache)
+        elif translation_site == "zetrotranslation":
+            downloader.download_novel_zetrotranslation(novelupdates_url, use_cache)
+        
+        downloader.save_novel_as_epub()
+        print("\nDone! EPUB file has been created.")
+        
+    except KeyboardInterrupt:
+        print("\nDownload cancelled by user.")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

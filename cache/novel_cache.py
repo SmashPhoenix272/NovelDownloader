@@ -12,8 +12,15 @@ class NovelCache:
     def __init__(self, novel_title):
         cache_dir = os.path.join(os.path.dirname(__file__), 'db')
         os.makedirs(cache_dir, exist_ok=True)
-        self.db_name = os.path.join(cache_dir, f"{novel_title}.db".replace(" ", "_"))
-        self.connection = sqlite3.connect(self.db_name)
+        # Sanitize the novel title to create a valid filename
+        sanitized_title = ''.join(c if c.isalnum() or c in (' ', '_') else '_' for c in novel_title)
+        self.db_name = os.path.join(cache_dir, f"{sanitized_title}.db")
+        print(f"Using database file: {self.db_name}")
+        try:
+            self.connection = sqlite3.connect(self.db_name)
+        except sqlite3.Error as e:
+            print(f"Error opening database file: {e}")
+            raise
         self.cursor = self.connection.cursor()
         self._init_tables()
 
