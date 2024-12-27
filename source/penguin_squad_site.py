@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 from .base_translation_site import TranslationSite
 
 class PenguinSquadSite(TranslationSite):
+    def __init__(self, page, cf_bypasser, nu_retriever=None):
+        super().__init__(page, cf_bypasser, nu_retriever)
+
     def get_chapter_links(self, url):
         self.page.get(url)
         html_content = self.page.html

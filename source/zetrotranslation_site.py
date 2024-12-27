@@ -6,9 +6,12 @@ from .NU_getchapterlink import NovelUpdatesChapterRetriever
 logger = logging.getLogger(__name__)
 
 class ZetroTranslationSite(TranslationSite):
-    def __init__(self, page, cf_bypasser):
+    def __init__(self, page, cf_bypasser, nu_retriever=None):
         super().__init__(page, cf_bypasser)
-        self.nu_retriever = NovelUpdatesChapterRetriever(page, cf_bypasser)
+        if nu_retriever is None:
+            self.nu_retriever = NovelUpdatesChapterRetriever(page, cf_bypasser)
+        else:
+            self.nu_retriever = nu_retriever
 
     def get_chapter_links(self, novelupdates_url):
         logger.info(f"Getting chapter links from {novelupdates_url}")

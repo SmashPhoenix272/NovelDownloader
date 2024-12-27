@@ -3,6 +3,7 @@ from .penguin_squad_site import PenguinSquadSite
 from .genesistudio_site import GenesistudioSite
 from .readingpia_site import ReadingPiaSite
 from .zetrotranslation_site import ZetroTranslationSite
+from .gadgetizedpanda_site import GadgetizedPandaSite
 
 # Export all site classes for easy import in NovelDownloader.py
-__all__ = ['TranslationSite', 'PenguinSquadSite', 'GenesistudioSite', 'ReadingPiaSite', 'ZetroTranslationSite']
+__all__ = ['TranslationSite', 'PenguinSquadSite', 'GenesistudioSite', 'ReadingPiaSite', 'ZetroTranslationSite', 'GadgetizedPandaSite']

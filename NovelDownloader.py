@@ -7,12 +7,13 @@ import re
 from tqdm import tqdm
 from urllib.parse import urlparse, unquote
 from CloudflareBypasser import CloudflareBypasser
-from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite, ZetroTranslationSite
+from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite, ZetroTranslationSite, GadgetizedPandaSite
 from source.penguin_squad_site import PaywallException
 from source.NU_getchapterlink import NovelUpdatesChapterRetriever
 from cache.novel_cache import NovelCache
 from ebooklib import epub
 import io
+from collections import defaultdict
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -79,7 +80,7 @@ class NovelDownloader:
 
     def download_novel_penguin_squad(self, translation_site_url, use_cache=False):
         try:
-            translation_site = PenguinSquadSite(self.page, self.cf_bypasser)
+            translation_site = PenguinSquadSite(self.page, self.cf_bypasser, self.nu_retriever)
             logger.info(f"Retrieving chapter links from {translation_site_url}")
             chapter_links = translation_site.get_chapter_links(translation_site_url)
             self.total_chapters = len(chapter_links)
@@ -111,7 +112,7 @@ class NovelDownloader:
                 logger.error("Failed to log in to NovelUpdates. Cannot proceed with download.")
                 return
 
-            translation_site = GenesistudioSite(self.page, self.cf_bypasser)
+            translation_site = GenesistudioSite(self.page, self.cf_bypasser, self.nu_retriever)
             logger.info(f"Retrieving chapter links from NovelUpdates: {novelupdates_url}")
             chapter_links = translation_site.get_chapter_links(novelupdates_url)
             self.total_chapters = len(chapter_links)
@@ -142,7 +143,7 @@ class NovelDownloader:
 
     def download_novel_readingpia(self, translation_site_url, use_cache=False):
         try:
-            translation_site = ReadingPiaSite(self.page, self.cf_bypasser)
+            translation_site = ReadingPiaSite(self.page, self.cf_bypasser, self.nu_retriever)
             logger.info(f"Retrieving chapter links from {translation_site_url}")
             chapter_links = translation_site.get_chapter_links(translation_site_url)
             self.total_chapters = len(chapter_links)
@@ -171,7 +172,7 @@ class NovelDownloader:
 
     def download_novel_zetrotranslation(self, translation_site_url, use_cache=False):
         try:
-            translation_site = ZetroTranslationSite(self.page, self.cf_bypasser)
+            translation_site = ZetroTranslationSite(self.page, self.cf_bypasser, self.nu_retriever)
             logger.info(f"Retrieving chapter links from {translation_site_url}")
             chapter_links = translation_site.get_chapter_links(translation_site_url)
             self.total_chapters = len(chapter_links)
@@ -198,6 +199,101 @@ class NovelDownloader:
             logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
         except Exception as e:
             logger.error(f"Error downloading novel from Zetrotranslation: {str(e)}")
+            sys.exit(1)
+
+    def download_novel_gadgetizedpanda(self, novelupdates_url, use_cache=False):
+        try:
+            if not self.login_to_novelupdates():
+                logger.error("Failed to log in to NovelUpdates. Cannot proceed with download.")
+                return
+
+            translation_site = GadgetizedPandaSite(self.page, self.cf_bypasser, self.novel_info['title'], self.nu_retriever)
+            logger.info(f"Retrieving chapter links from NovelUpdates: {novelupdates_url}")
+            chapter_links = translation_site.get_chapter_links(novelupdates_url)
+            self.total_chapters = len(chapter_links)
+            
+            logger.info(f"Found {self.total_chapters} chapters. Starting download...")
+            
+            # Dictionary to store chapter parts
+            chapter_parts = defaultdict(list)
+            
+            # First pass: Download all chapters and organize parts
+            for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
+                cached_chapter = self.cache.get_cached_chapter(link)
+                if use_cache and cached_chapter:
+                    chapter_title, chapter_content, chapter_images = cached_chapter
+                else:
+                    try:
+                        chapter_title, (chapter_content, chapter_images) = translation_site.get_chapter_content(link)
+                        if chapter_title and chapter_content:
+                            self.cache.cache_chapter(link, chapter_title, chapter_content, chapter_images)
+                        else:
+                            logger.warning(f"Failed to retrieve content for chapter {i+1}")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Error downloading chapter {i+1}: {str(e)}")
+                        continue
+                
+                # Extract volume, chapter, and part numbers
+                if "Light Novel Illustrations" in chapter_title:
+                    # Extract volume number from illustration chapter title
+                    vol_match = re.match(r'Volume (\d+) -', chapter_title)
+                    if vol_match:
+                        vol_num = vol_match.group(1)
+                        # Use a special key format for illustrations to ensure proper ordering
+                        key = f'Volume {vol_num} Chapter 0'  # Place illustrations at start of volume
+                        chapter_parts[key] = [(0, chapter_title, chapter_content, chapter_images)]
+                    else:
+                        # If no volume number found, add to novel_content directly
+                        self.novel_content.append((chapter_title, chapter_content, chapter_images))
+                else:
+                    match = re.match(r'Volume (\d+) Chapter (\d+)(?:\s+part (\d+))?', chapter_title)
+                    if match:
+                        vol_num, chap_num = match.group(1), match.group(2)
+                        part_num = match.group(3) if match.group(3) else '1'
+                        key = f'Volume {vol_num} Chapter {chap_num}'
+                        if key not in chapter_parts:
+                            chapter_parts[key] = []
+                        chapter_parts[key].append((int(part_num), chapter_title, chapter_content, chapter_images))
+                    else:
+                        # Handle any other non-standard chapter titles
+                        self.novel_content.append((chapter_title, chapter_content, chapter_images))
+            
+            # Second pass: Sort chapters by volume and chapter number
+            sorted_chapters = sorted(chapter_parts.items(), key=lambda x: (
+                int(re.match(r'Volume (\d+) Chapter (\d+)', x[0]).group(1)),  # Volume number
+                int(re.match(r'Volume (\d+) Chapter (\d+)', x[0]).group(2))   # Chapter number
+            ))
+            
+            # Add sorted chapters to novel_content
+            for chapter_key, parts in sorted_chapters:
+                # Sort parts by part number
+                parts.sort(key=lambda x: x[0])
+                
+                # Use original title for illustrations, otherwise combine parts
+                if "Light Novel Illustrations" in parts[0][1]:
+                    combined_title = parts[0][1]  # Use the original illustration title
+                else:
+                    # If only one part exists and it's part 1, use original title without "part 1"
+                    if len(parts) == 1 and parts[0][0] == 1:
+                        combined_title = chapter_key
+                    else:
+                        combined_title = chapter_key + f" (Parts 1-{len(parts)})"
+                
+                # Combine content from all parts
+                combined_content = ""
+                combined_images = []
+                for _, title, content, images in parts:
+                    if combined_content:
+                        combined_content += f"<div class='part-divider'></div>"
+                    combined_content += content
+                    combined_images.extend(images)
+                
+                self.novel_content.append((combined_title, combined_content, combined_images))
+            
+            logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {len(chapter_parts)}")
+        except Exception as e:
+            logger.error(f"Error downloading novel from GadgetizedPanda: {str(e)}")
             sys.exit(1)
 
     def save_novel_as_epub(self):
@@ -254,12 +350,62 @@ class NovelDownloader:
             info_chapter.content = info_content
             book.add_item(info_chapter)
             
+            # Add CSS for part dividers
+            style = '''
+                .part-divider {
+                    text-align: center;
+                    margin: 2em 0;
+                    border-top: 1px solid #ccc;
+                }
+                .scene-break {
+                    text-align: center;
+                    margin: 1em 0;
+                    color: #666;
+                }
+                .epub-image-container {
+                    text-align: center;
+                    margin: 1em 0;
+                }
+                .epub-image-container img {
+                    max-width: 100%;
+                    height: auto;
+                    display: block;
+                    margin: 0 auto;
+                }
+            '''
+            nav_css = epub.EpubItem(
+                uid="style_nav",
+                file_name="style/nav.css",
+                media_type="text/css",
+                content=style
+            )
+            book.add_item(nav_css)
+            
+            # Create images directory in EPUB
+            images_added = set()
+            
             # Add chapters
             logger.info("Adding novel chapters")
             chapters = []
-            for i, (title, content) in enumerate(self.novel_content):
+            for i, chapter_data in enumerate(self.novel_content):
+                if len(chapter_data) == 3:  # GadgetizedPanda format with images
+                    title, content, images = chapter_data
+                    # Add images to the book
+                    for img_filename, img_data in images:
+                        if img_filename not in images_added:
+                            epub_image = epub.EpubItem(
+                                file_name=f"images/{img_filename}",
+                                content=img_data,
+                                media_type="image/jpeg"
+                            )
+                            book.add_item(epub_image)
+                            images_added.add(img_filename)
+                else:  # Standard format without images
+                    title, content = chapter_data
+                
                 chapter = epub.EpubHtml(title=title, file_name=f'chapter_{i+1}.xhtml', lang='en')
                 chapter.content = f"<h1>{title}</h1>{content}"
+                chapter.add_item(nav_css)
                 book.add_item(chapter)
                 chapters.append(chapter)
             
@@ -301,7 +447,8 @@ class NovelDownloader:
             print("2. Genesis Studio")
             print("3. Reading Pia")
             print("4. Zetrotranslation")
-            choice = input("\nSelect translation site (1-4): ")
+            print("5. GadgetizedPanda")
+            choice = input("\nSelect translation site (1-5): ")
             
             if choice == "1":
                 return "penguin_squad"
@@ -311,6 +458,8 @@ class NovelDownloader:
                 return "readingpia"
             elif choice == "4":
                 return "zetrotranslation"
+            elif choice == "5":
+                return "gadgetizedpanda"
             else:
                 print("Invalid choice. Please try again.")
 
@@ -326,7 +475,7 @@ def main():
         downloader.get_novel_info(novelupdates_url)
         
         translation_site = downloader.get_translation_site()
-        if translation_site != "zetrotranslation":
+        if translation_site not in ["zetrotranslation", "gadgetizedpanda"]:
             translation_site_url = input("Enter translation site URL: ")
             if not downloader.validate_url(translation_site_url):
                 logger.warning("Invalid URL. Please enter a valid URL.")
@@ -351,6 +500,8 @@ def main():
             downloader.download_novel_readingpia(translation_site_url, use_cache)
         elif translation_site == "zetrotranslation":
             downloader.download_novel_zetrotranslation(novelupdates_url, use_cache)
+        elif translation_site == "gadgetizedpanda":
+            downloader.download_novel_gadgetizedpanda(novelupdates_url, use_cache)
         
         downloader.save_novel_as_epub()
         print("\nDone! EPUB file has been created.")

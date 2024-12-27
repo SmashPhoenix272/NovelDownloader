@@ -5,8 +5,8 @@ from bs4 import BeautifulSoup
 from .base_translation_site import TranslationSite
 
 class ReadingPiaSite(TranslationSite):
-    def __init__(self, page, cf_bypasser):
-        super().__init__(page, cf_bypasser)
+    def __init__(self, page, cf_bypasser, nu_retriever=None):
+        super().__init__(page, cf_bypasser, nu_retriever)
         self.base_url = "https://www.readingpia.me"
 
     def get_soup(self, url):

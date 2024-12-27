@@ -7,6 +7,8 @@ It uses SQLite to store novel information and chapter content.
 
 import sqlite3
 import os
+import json
+import base64
 
 class NovelCache:
     def __init__(self, novel_title):
@@ -32,7 +34,12 @@ class NovelCache:
         
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS chapters
-            (chapter_number INTEGER PRIMARY KEY, title TEXT, content TEXT)
+            (url TEXT PRIMARY KEY, title TEXT, content TEXT)
+        ''')
+        
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS images
+            (url TEXT PRIMARY KEY, filename TEXT, data BLOB)
         ''')
         
         self.connection.commit()
@@ -49,23 +56,75 @@ class NovelCache:
         self.cursor.execute("SELECT key, value FROM novel_info")
         return dict(self.cursor.fetchall())
 
-    def cache_chapter(self, chapter_number, title, content):
+    def cache_chapter(self, url, title, content, images=None):
+        """Cache chapter content and its images"""
+        # Cache the chapter content
         self.cursor.execute(
-            "INSERT OR REPLACE INTO chapters (chapter_number, title, content) VALUES (?, ?, ?)",
-            (chapter_number, title, content)
+            "INSERT OR REPLACE INTO chapters (url, title, content) VALUES (?, ?, ?)",
+            (url, title, content)
         )
+        
+        # Cache the images if provided
+        if images:
+            for filename, img_data in images:
+                self.cursor.execute(
+                    "INSERT OR REPLACE INTO images (url, filename, data) VALUES (?, ?, ?)",
+                    (filename, filename, img_data)
+                )
+        
         self.connection.commit()
 
-    def get_cached_chapter(self, chapter_number):
+    def get_cached_chapter(self, url):
+        """Get cached chapter content and its images"""
+        # Get chapter content
         self.cursor.execute(
-            "SELECT title, content FROM chapters WHERE chapter_number = ?",
-            (chapter_number,)
+            "SELECT title, content FROM chapters WHERE url = ?",
+            (url,)
+        )
+        chapter = self.cursor.fetchone()
+        if not chapter:
+            return None
+            
+        title, content = chapter
+        
+        # Get all images referenced in the content
+        images = []
+        self.cursor.execute("SELECT filename, data FROM images")
+        for filename, img_data in self.cursor.fetchall():
+            if f"images/{filename}" in content:
+                images.append((filename, img_data))
+        
+        return title, content, images
+
+    def get_cached_image(self, url):
+        """Get cached image by URL"""
+        self.cursor.execute(
+            "SELECT filename, data FROM images WHERE url = ?",
+            (url,)
         )
         return self.cursor.fetchone()
 
+    def cache_image(self, url, filename, img_data):
+        """Cache a single image"""
+        self.cursor.execute(
+            "INSERT OR REPLACE INTO images (url, filename, data) VALUES (?, ?, ?)",
+            (url, filename, img_data)
+        )
+        self.connection.commit()
+
     def get_all_cached_chapters(self):
-        self.cursor.execute("SELECT chapter_number, title, content FROM chapters ORDER BY chapter_number")
-        return self.cursor.fetchall()
+        """Get all cached chapters with their images"""
+        self.cursor.execute("SELECT url, title, content FROM chapters")
+        chapters = []
+        for url, title, content in self.cursor.fetchall():
+            # Get images for this chapter
+            images = []
+            self.cursor.execute("SELECT filename, data FROM images")
+            for filename, img_data in self.cursor.fetchall():
+                if f"images/{filename}" in content:
+                    images.append((filename, img_data))
+            chapters.append((url, title, content, images))
+        return chapters
 
     def close(self):
         self.connection.close()

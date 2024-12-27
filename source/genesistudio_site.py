@@ -8,10 +8,13 @@ import re
 logger = logging.getLogger(__name__)
 
 class GenesistudioSite:
-    def __init__(self, page: ChromiumPage, cf_bypasser):
+    def __init__(self, page: ChromiumPage, cf_bypasser, nu_retriever=None):
         self.page = page
         self.cf_bypasser = cf_bypasser
-        self.nu_retriever = NovelUpdatesChapterRetriever(page, cf_bypasser)
+        if nu_retriever is None:
+            self.nu_retriever = NovelUpdatesChapterRetriever(page, cf_bypasser)
+        else:
+            self.nu_retriever = nu_retriever
 
     def get_chapter_links(self, novelupdates_url):
         if self.nu_retriever.login():
