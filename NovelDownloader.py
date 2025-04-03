@@ -8,6 +8,7 @@ from tqdm import tqdm
 from urllib.parse import urlparse, unquote
 from CloudflareBypasser import CloudflareBypasser
 from source.translation_site import PenguinSquadSite, GenesistudioSite, ReadingPiaSite, ZetroTranslationSite, GadgetizedPandaSite
+from source.skydemonorder_site import SkyDemonOrderSite
 from source.penguin_squad_site import PaywallException
 from source.NU_getchapterlink import NovelUpdatesChapterRetriever
 from cache.novel_cache import NovelCache
@@ -201,6 +202,41 @@ class NovelDownloader:
             logger.error(f"Error downloading novel from Zetrotranslation: {str(e)}")
             sys.exit(1)
 
+    def download_novel_skydemonorder(self, novelupdates_url, use_cache=False):
+        try:
+            if not self.login_to_novelupdates():
+                logger.error("Failed to log in to NovelUpdates. Cannot proceed with download.")
+                return
+
+            translation_site = SkyDemonOrderSite(self.page, self.cf_bypasser, self.nu_retriever)
+            logger.info(f"Retrieving chapter links from NovelUpdates: {novelupdates_url}")
+            chapter_links = translation_site.get_chapter_links(novelupdates_url)
+            self.total_chapters = len(chapter_links)
+            
+            logger.info(f"Found {self.total_chapters} chapters. Starting download...")
+            for i, link in enumerate(tqdm(chapter_links, desc="Downloading chapters", unit="chapter")):
+                cached_chapter = self.cache.get_cached_chapter(i)
+                if use_cache and cached_chapter:
+                    chapter_title, chapter_content = cached_chapter
+                else:
+                    try:
+                        chapter_title, chapter_content = translation_site.get_chapter_content(link)
+                        if chapter_title and chapter_content:
+                            self.cache.cache_chapter(i, chapter_title, chapter_content)
+                        else:
+                            logger.warning(f"Failed to retrieve content for chapter {i+1}")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Error downloading chapter {i+1}: {str(e)}")
+                        continue
+                
+                self.novel_content.append((chapter_title, chapter_content))
+            
+            logger.info(f"Novel '{self.novel_info['title']}' has been downloaded. Total chapters: {self.total_chapters}")
+        except Exception as e:
+            logger.error(f"Error downloading novel from SkyDemonOrder: {str(e)}")
+            sys.exit(1)
+
     def download_novel_gadgetizedpanda(self, novelupdates_url, use_cache=False):
         try:
             if not self.login_to_novelupdates():
@@ -350,27 +386,124 @@ class NovelDownloader:
             info_chapter.content = info_content
             book.add_item(info_chapter)
             
-            # Add CSS for part dividers
+            # Add CSS styles
             style = '''
+                /* Base styles */
+                body {
+                    font-family: "Noto Serif", "DejaVu Serif", "Droid Serif", serif;
+                    font-size: 1em;
+                    line-height: 1.6;
+                    color: #333333;
+                    margin: 1.25em auto;
+                    padding: 0 1em;
+                }
+
+                /* Headings */
+                h1, h2, h3, h4, h5, h6 {
+                    font-family: "Noto Sans", "DejaVu Sans", "Droid Sans", sans-serif;
+                    color: #292929;
+                    margin-top: 1.25em;
+                    margin-bottom: 0.7em;
+                    line-height: 1.3;
+                }
+
+                /* Paragraphs */
+                p {
+                    margin-bottom: 1em;
+                    text-align: justify;
+                }
+
+                /* Links */
+                a {
+                    color: #0066cc;
+                    text-decoration: underline;
+                }
+
+                /* Lists */
+                ul, ol {
+                    margin: 1em 0;
+                    padding-left: 2em;
+                }
+
+                li {
+                    margin-bottom: 0.5em;
+                }
+
+                /* Blockquotes */
+                blockquote {
+                    margin: 1em 2em;
+                    padding-left: 1em;
+                    border-left: 3px solid #cccccc;
+                    font-style: italic;
+                }
+
+                /* Code blocks */
+                code, pre {
+                    font-family: "DejaVu Sans Mono", "Droid Sans Mono", monospace;
+                    background-color: #f5f5f5;
+                    padding: 0.3em;
+                }
+
+                /* Tables */
+                table {
+                    width: 100%;
+                    margin: 1em 0;
+                    border-collapse: collapse;
+                }
+
+                th, td {
+                    border: 1px solid #dddddd;
+                    padding: 0.5em;
+                }
+
+                /* Images */
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    display: block;
+                    margin: 1em auto;
+                }
+
+                /* Utility classes */
                 .part-divider {
                     text-align: center;
                     margin: 2em 0;
-                    border-top: 1px solid #ccc;
+                    border-top: 1px solid #cccccc;
                 }
+
                 .scene-break {
                     text-align: center;
                     margin: 1em 0;
-                    color: #666;
+                    color: #666666;
                 }
+
                 .epub-image-container {
                     text-align: center;
                     margin: 1em 0;
                 }
+
                 .epub-image-container img {
                     max-width: 100%;
                     height: auto;
                     display: block;
                     margin: 0 auto;
+                }
+
+                /* Reading enhancements */
+                html {
+                    text-rendering: optimizeLegibility;
+                    -webkit-font-smoothing: antialiased;
+                }
+
+                /* Footnotes */
+                .footnote {
+                    font-size: 0.8em;
+                    color: #666666;
+                }
+
+                sup {
+                    vertical-align: super;
+                    font-size: 0.8em;
                 }
             '''
             nav_css = epub.EpubItem(
@@ -448,7 +581,8 @@ class NovelDownloader:
             print("3. Reading Pia")
             print("4. Zetrotranslation")
             print("5. GadgetizedPanda")
-            choice = input("\nSelect translation site (1-5): ")
+            print("6. SkyDemonOrder")
+            choice = input("\nSelect translation site (1-6): ")
             
             if choice == "1":
                 return "penguin_squad"
@@ -460,6 +594,8 @@ class NovelDownloader:
                 return "zetrotranslation"
             elif choice == "5":
                 return "gadgetizedpanda"
+            elif choice == "6":
+                return "skydemonorder"
             else:
                 print("Invalid choice. Please try again.")
 
@@ -475,7 +611,7 @@ def main():
         downloader.get_novel_info(novelupdates_url)
         
         translation_site = downloader.get_translation_site()
-        if translation_site not in ["zetrotranslation", "gadgetizedpanda"]:
+        if translation_site not in ["zetrotranslation", "gadgetizedpanda", "skydemonorder"]:
             translation_site_url = input("Enter translation site URL: ")
             if not downloader.validate_url(translation_site_url):
                 logger.warning("Invalid URL. Please enter a valid URL.")
@@ -502,6 +638,8 @@ def main():
             downloader.download_novel_zetrotranslation(novelupdates_url, use_cache)
         elif translation_site == "gadgetizedpanda":
             downloader.download_novel_gadgetizedpanda(novelupdates_url, use_cache)
+        elif translation_site == "skydemonorder":
+            downloader.download_novel_skydemonorder(novelupdates_url, use_cache)
         
         downloader.save_novel_as_epub()
         print("\nDone! EPUB file has been created.")
